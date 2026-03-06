@@ -46,18 +46,21 @@ export default function Home() {
 
   useEffect(() => {
     fetch("/api/categories")
-      .then((res) => res.json())
-      .then((data) => setCategories(data.categories));
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data) => setCategories(data?.categories ?? []))
+      .catch(() => setCategories([]));
   }, []);
 
   useEffect(() => {
+    setSelectedSubCategory(undefined);
     if (selectedCategory) {
-      fetch(`/api/subcategories`)
-        .then((res) => res.json())
-        .then((data) => setSubCategories(data.subCategories));
+      const params = new URLSearchParams({ category: selectedCategory });
+      fetch(`/api/subcategories?${params}`)
+        .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+        .then((data) => setSubCategories(data?.subCategories ?? []))
+        .catch(() => setSubCategories([]));
     } else {
       setSubCategories([]);
-      setSelectedSubCategory(undefined);
     }
   }, [selectedCategory]);
 
@@ -72,7 +75,11 @@ export default function Home() {
     fetch(`/api/products?${params}`)
       .then((res) => res.json())
       .then((data) => {
-        setProducts(data.products);
+        setProducts(data.products ?? []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setProducts([]);
         setLoading(false);
       });
   }, [search, selectedCategory, selectedSubCategory]);
@@ -95,7 +102,7 @@ export default function Home() {
             </div>
 
             <Select
-              value={selectedCategory}
+              value={selectedCategory ?? ""}
               onValueChange={(value) => setSelectedCategory(value || undefined)}
             >
               <SelectTrigger className="w-full md:w-[200px]">
@@ -112,7 +119,7 @@ export default function Home() {
 
             {selectedCategory && subCategories.length > 0 && (
               <Select
-                value={selectedSubCategory}
+                value={selectedSubCategory ?? ""}
                 onValueChange={(value) =>
                   setSelectedSubCategory(value || undefined)
                 }
@@ -164,15 +171,12 @@ export default function Home() {
               {products.map((product) => (
                 <Link
                   key={product.stacklineSku}
-                  href={{
-                    pathname: "/product",
-                    query: { product: JSON.stringify(product) },
-                  }}
+                  href={`/product/${product.stacklineSku}`}
                 >
                   <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
                     <CardHeader className="p-0">
                       <div className="relative h-48 w-full overflow-hidden rounded-t-lg bg-muted">
-                        {product.imageUrls[0] && (
+                        {product.imageUrls?.[0] && (
                           <Image
                             src={product.imageUrls[0]}
                             alt={product.title}
